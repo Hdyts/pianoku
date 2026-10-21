@@ -1,0 +1,14 @@
+# Contoh sheet teks untuk Pianoku
+title: Twinkle Twinkle Little Star
+composer: Tradisional
+key: C
+time: 4/4
+tempo: 90
+
+# Tangan kanan (kunci G) dan tangan kiri (kunci F)
+RH: C4:1 C4:1 G4:1 G4:1 | A4:1 A4:1 G4:2 | F4:1 F4:1 E4:1 E4:1 | D4:1 D4:1 C4:2
+RH: G4:1 G4:1 F4:1 F4:1 | E4:1 E4:1 D4:2 | G4:1 G4:1 F4:1 F4:1 | E4:1 E4:1 D4:2
+RH: C4:1 C4:1 G4:1 G4:1 | A4:1 A4:1 G4:2 | F4:1 F4:1 E4:1 E4:1 | D4:1 D4:1 C4:2
+LH: C3+G3:2 C3+G3:2 | F3+A3:2 C3+G3:2 | F3+A3:2 C3+G3:2 | G3+B3:2 C3+G3:2
+LH: C3+G3:2 G2+B2:2 | C3+G3:2 G2+B2:2 | C3+G3:2 F3+A3:2 | C3+G3:2 G2+B2:2
+LH: C3+G3:2 C3+G3:2 | F3+A3:2 C3+G3:2 | F3+A3:2 C3+G3:2 | G3+B3:2 C3+G3:4

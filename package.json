@@ -1,0 +1,11 @@
+{
+  "name": "pianoku",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Belajar not balok dengan piano virtual yang dimainkan lewat keyboard laptop.",
+  "scripts": {
+    "start": "npx serve .",
+    "test": "node --test tests/core.test.mjs"
+  }
+}

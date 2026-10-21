@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pianoku — belajar not balok</title>
+  <meta name="description" content="Belajar membaca not balok dengan piano virtual yang dimainkan lewat keyboard laptop. Lengkap dengan pelajaran Canon in D dan pembaca file sheet.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2317181d'/%3E%3Crect x='6' y='6' width='5' height='20' rx='1' fill='%23fdfdfb'/%3E%3Crect x='13.5' y='6' width='5' height='20' rx='1' fill='%23fdfdfb'/%3E%3Crect x='21' y='6' width='5' height='20' rx='1' fill='%23fdfdfb'/%3E%3Crect x='9' y='6' width='4' height='12' rx='1' fill='%23b07d2b'/%3E%3Crect x='16.5' y='6' width='4' height='12' rx='1' fill='%23b07d2b'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/app.css">
+  <link rel="stylesheet" href="css/score.css">
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <svg viewBox="0 0 32 32" width="28" height="28" aria-hidden="true"><rect width="32" height="32" rx="7" fill="var(--ebony)"/><rect x="6" y="6" width="5" height="20" rx="1" fill="#fdfdfb"/><rect x="13.5" y="6" width="5" height="20" rx="1" fill="#fdfdfb"/><rect x="21" y="6" width="5" height="20" rx="1" fill="#fdfdfb"/><rect x="9" y="6" width="4" height="12" rx="1" fill="var(--brass)"/><rect x="16.5" y="6" width="4" height="12" rx="1" fill="var(--brass)"/></svg>
+      <span>Pianoku</span>
+    </div>
+    <div class="top-actions">
+      <button class="btn ghost" id="btn-map" type="button" aria-haspopup="dialog">Peta tombol</button>
+      <button class="btn solid" id="btn-open" type="button">Buka file sheet</button>
+      <input id="file" type="file" hidden accept=".mid,.midi,.musicxml,.xml,.mxl,.txt,.piano,.json">
+    </div>
+  </header>
+
+  <aside class="lessons" id="lessons" aria-label="Daftar pelajaran">
+    <label class="lesson-select-wrap">
+      <span class="sr">Pilih pelajaran</span>
+      <select id="lesson-select"></select>
+    </label>
+    <nav id="lesson-list"></nav>
+  </aside>
+
+  <main class="stage">
+    <section class="sheet-head">
+      <div class="sheet-title">
+        <h1 id="title">—</h1>
+        <p id="summary"></p>
+      </div>
+      <div class="stats" id="stats" aria-live="polite">
+        <div><b id="st-progress">0/0</b><span>langkah</span></div>
+        <div><b id="st-acc">–</b><span>akurasi</span></div>
+        <div><b id="st-err">0</b><span>salah</span></div>
+      </div>
+    </section>
+
+    <section class="paper" id="paper" tabindex="-1">
+      <div id="score" class="score-host"></div>
+      <div class="done" id="done" hidden>
+        <b id="done-title">Selesai</b>
+        <p id="done-text"></p>
+        <button class="btn solid" id="btn-again" type="button">Main lagi</button>
+        <button class="btn ghost" id="btn-next" type="button">Pelajaran berikutnya</button>
+      </div>
+    </section>
+
+    <section class="hintbar" id="hintbar" aria-live="polite"></section>
+
+    <section class="sheet-opts" id="sheet-opts" hidden>
+      <span class="opt-label">Sheet dari file:</span>
+      <label>Tangan
+        <select id="opt-hands">
+          <option value="both">Kedua tangan</option>
+          <option value="right">Kanan (kunci G)</option>
+          <option value="left">Kiri (kunci F)</option>
+        </select>
+      </label>
+      <label class="check"><input type="checkbox" id="opt-melody"> Hanya satu nada per langkah</label>
+      <div id="opt-tracks" class="tracks" hidden></div>
+    </section>
+
+    <section class="controls">
+      <div class="group">
+        <button class="btn solid" id="btn-listen" type="button">Dengarkan</button>
+        <button class="btn" id="btn-restart" type="button" title="Mulai dari awal (Esc)">Ulangi</button>
+      </div>
+      <div class="group">
+        <label>Mode
+          <select id="opt-mode">
+            <option value="wait">Tunggu nada benar</option>
+            <option value="continue">Lanjut walau salah</option>
+          </select>
+        </label>
+        <label>Nama nada
+          <select id="opt-names">
+            <option value="solfege">Do Re Mi</option>
+            <option value="letter">C D E</option>
+            <option value="none">Sembunyi</option>
+          </select>
+        </label>
+      </div>
+      <div class="group">
+        <label class="check"><input type="checkbox" id="opt-hint" checked> Petunjuk tuts</label>
+        <label class="check"><input type="checkbox" id="opt-auto" checked> Geser oktaf otomatis</label>
+      </div>
+      <div class="group sliders">
+        <label>Tempo <input type="range" id="opt-speed" min="40" max="150" value="100" step="5"><output id="out-speed">100%</output></label>
+        <label>Volume <input type="range" id="opt-vol" min="0" max="100" value="80"></label>
+      </div>
+    </section>
+
+    <section class="dock">
+      <div class="dock-bar">
+        <div class="octave">
+          <button class="oct-btn" id="oct-down" type="button" aria-label="Turun satu oktaf">[</button>
+          <div class="oct-read"><b id="oct-label">C4 – B6</b><span>oktaf</span></div>
+          <button class="oct-btn" id="oct-up" type="button" aria-label="Naik satu oktaf">]</button>
+        </div>
+        <div class="minimap" id="minimap" aria-hidden="true"></div>
+        <div class="legend">
+          <i class="sw cur"></i>berikutnya <i class="sw ok"></i>benar <i class="sw bad"></i>salah
+        </div>
+      </div>
+      <div id="keyboard" class="keyboard"></div>
+    </section>
+  </main>
+</div>
+
+<dialog id="dlg-map">
+  <form method="dialog" class="dlg">
+    <h2>Peta tombol keyboard</h2>
+    <p>Tiga baris keyboard laptop disusun seperti tuts piano. Baris huruf adalah tuts putih, baris angka dan baris tengah adalah tuts hitam.</p>
+    <div class="map-rows">
+      <div><span class="map-name">Tuts putih</span>
+        <div class="caps"><kbd>Q</kbd><kbd>W</kbd><kbd>E</kbd><kbd>R</kbd><kbd>T</kbd><kbd>Y</kbd><kbd>U</kbd><kbd>I</kbd><kbd>O</kbd><kbd>P</kbd><kbd>Z</kbd><kbd>X</kbd><kbd>C</kbd><kbd>V</kbd><kbd>B</kbd><kbd>N</kbd><kbd>M</kbd><kbd>,</kbd><kbd>.</kbd><kbd>/</kbd></div>
+        <small>Do Re Mi Fa Sol La Si, lalu Do berikutnya, dan seterusnya (20 tuts, hampir tiga oktaf).</small></div>
+      <div><span class="map-name">Tuts hitam</span>
+        <div class="caps"><kbd>2</kbd><kbd>3</kbd><kbd>5</kbd><kbd>6</kbd><kbd>7</kbd><kbd class="gap">9</kbd><kbd>0</kbd><kbd class="gap">S</kbd><kbd>D</kbd><kbd>F</kbd><kbd class="gap">H</kbd><kbd>J</kbd><kbd class="gap">L</kbd><kbd>;</kbd><kbd>'</kbd></div>
+        <small>C♯ D♯ F♯ G♯ A♯ di setiap oktaf.</small></div>
+      <div><span class="map-name">Oktaf</span>
+        <div class="caps"><kbd>[</kbd> turun &nbsp; <kbd>]</kbd> naik</div></div>
+      <div><span class="map-name">Lain-lain</span>
+        <div class="caps"><kbd>Spasi</kbd> pedal sustain &nbsp; <kbd>Esc</kbd> ulangi dari awal</div></div>
+    </div>
+    <button class="btn solid" value="close">Tutup</button>
+  </form>
+</dialog>
+
+<dialog id="dlg-file">
+  <form method="dialog" class="dlg">
+    <h2>Buka file sheet</h2>
+    <p>Pilih file, atau seret ke halaman ini. Format yang bisa dibaca:</p>
+    <ul>
+      <li><b>MusicXML</b> (.musicxml, .xml, .mxl) — ekspor dari MuseScore, Finale, Sibelius.</li>
+      <li><b>MIDI</b> (.mid) — nada dipisah otomatis ke kunci G dan kunci F.</li>
+      <li><b>Teks</b> (.txt) — tulis sendiri, contoh di bawah.</li>
+    </ul>
+    <p>PDF atau foto sheet belum bisa dibaca, karena itu butuh pengenalan gambar not.</p>
+    <pre>title: Twinkle Twinkle
+key: C
+time: 4/4
+tempo: 90
+RH: C4:1 C4:1 G4:1 G4:1 | A4:1 A4:1 G4:2
+LH: C3+G3:2 C3+G3:2</pre>
+    <p class="small">Not ditulis <code>nama:ketukan</code>. Akor memakai <code>+</code>, jeda memakai <code>r</code>.</p>
+    <div class="dlg-row">
+      <button class="btn" type="button" id="sample-txt">Contoh teks</button>
+      <button class="btn" type="button" id="sample-xml">Contoh MusicXML</button>
+      <button class="btn" type="button" id="sample-mid">Contoh MIDI</button>
+    </div>
+    <div class="dlg-row">
+      <button class="btn solid" type="button" id="pick-file">Pilih file…</button>
+      <button class="btn ghost" value="close">Batal</button>
+    </div>
+  </form>
+</dialog>
+
+<div class="dropveil" id="dropveil" hidden>Lepas file sheet di sini</div>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
