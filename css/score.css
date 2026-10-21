@@ -1,0 +1,24 @@
+/* Gaya partitur (SVG). Warna lewat variabel CSS agar mendukung mode gelap. */
+.score { display:block; color: var(--ink, #1d1b19); max-width:100%; height:auto; }
+.score .sl, .score .bl, .score .ledger, .score .stem { stroke: currentColor; }
+.score .sl { stroke-width: 1; opacity:.78; }
+.score .bl { stroke-width: 1.1; }
+.score .bl.thick { stroke-width: 3.2; }
+.score .brace { fill:none; stroke: currentColor; stroke-width: 2.4; stroke-linecap:round; }
+.score .ledger { stroke-width: 1.4; }
+.score .stem { stroke-width: 1.35; }
+.score .ts { font-family: Georgia, 'Times New Roman', serif; font-weight:700; fill: currentColor; }
+.score .barno { fill: var(--muted, #8a8378); font-family: system-ui, sans-serif; }
+.score .head { fill: currentColor; stroke: currentColor; }
+.score .head.hollow { fill: var(--paper, #fffdf8); }
+.score .hole { fill: var(--paper, #fffdf8); stroke:none; }
+.score .dot { fill: currentColor; }
+.score .tie { fill:none; stroke: currentColor; stroke-width: 1.3; stroke-linecap:round; }
+.score .beams polygon { fill: currentColor; }
+.score .nt { color: var(--ink, #1d1b19); transition: color .12s; }
+.score .nt.st-cur { color: var(--cur, #2563eb); }
+.score .nt.st-ok  { color: var(--ok, #15803d); }
+.score .nt.st-bad { color: var(--bad, #dc2626); }
+.score .nt.st-bad .head.hollow { fill: var(--paper, #fffdf8); }
+.score .cursor { fill: var(--cur, #2563eb); opacity: 0; transition: opacity .12s; pointer-events:none; }
+.score .cursor.on { opacity: .11; }
