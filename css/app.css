@@ -297,6 +297,33 @@ dialog::backdrop { background: rgba(23, 24, 29, .55); }
   .key.white .kname, .key.white .ksol { display: none; }
   .key .kcap { min-width: 16px; height: 18px; font-size: 10px; padding: 0 2px; }
 }
+/* ---------- sustain indicator ---------- */
+.sustain-on {
+  box-shadow: 0 0 0 2px var(--brass), 0 0 18px rgba(176, 125, 43, 0.35);
+  transition: box-shadow 0.2s ease;
+  border-radius: 6px;
+  position: relative;
+}
+.sustain-on::after {
+  content: 'SUSTAIN';
+  position: absolute;
+  top: 4px;
+  right: 8px;
+  background: var(--brass);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  pointer-events: none;
+  z-index: 10;
+  animation: sustain-pulse 1.5s ease-in-out infinite;
+}
+@keyframes sustain-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; scroll-behavior: auto !important; }
 }

@@ -26,6 +26,7 @@ const el = {
 
 const audio = new PianoAudio();
 let shift = 0;
+let sustainOn = false; // toggle state untuk pedal sustain
 let score = null, practice = null, layout = null;
 let source = null; // { kind:'lesson', id } | { kind:'file', name, ... }
 let stepEls = new Map();
@@ -275,7 +276,18 @@ const dialogOpen = () => document.querySelector('dialog[open]');
 window.addEventListener('keydown', (e) => {
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   if (dialogOpen()) return;
-  if (e.code === 'Space') { e.preventDefault(); if (!e.repeat) audio.setSustain(true); return; }
+  if (e.code === 'Space') {
+    e.preventDefault();
+    if (!e.repeat) {
+      sustainOn = !sustainOn;
+      audio.setSustain(sustainOn);
+      // Indikator visual sustain pada keyboard container
+      $('keyboard').classList.toggle('sustain-on', sustainOn);
+      if (sustainOn) toast('Sustain ON', false, 1500);
+      else toast('Sustain OFF', false, 1500);
+    }
+    return;
+  }
   if (e.code === 'Escape') { restart(); return; }
   const ch = charOf(e.code);
   if (!ch) return;
@@ -289,7 +301,7 @@ window.addEventListener('keydown', (e) => {
   noteDown(midi, e.code);
 });
 window.addEventListener('keyup', (e) => {
-  if (e.code === 'Space') { e.preventDefault(); audio.setSustain(false); return; }
+  if (e.code === 'Space') { e.preventDefault(); return; } // toggle, jadi keyup tidak mengubah state
   const midi = held.get(e.code);
   if (midi === undefined) return;
   held.delete(e.code);
@@ -298,7 +310,7 @@ window.addEventListener('keyup', (e) => {
 window.addEventListener('blur', () => {
   for (const [code, midi] of held) noteUp(midi, code);
   held.clear();
-  audio.setSustain(false);
+  // Sustain toggle tetap aktif saat blur — pengguna harus menekan Space untuk mematikan
 });
 
 // ---------------------------------------------------------------- mode dengarkan
