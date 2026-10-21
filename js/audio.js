@@ -1,7 +1,23 @@
-// audio.js — synthesizer grand piano berbasis Web Audio (tanpa file sampel).
-// Model suara: stretched partials (inharmonicity), 12 harmonik, hammer tone,
-// body resonance, dan decay realistis ala grand piano akustik.
+// audio.js — piano berbasis sampel grand piano asli (Salamander Grand Piano).
+// Sampel direkam dari piano Yamaha C5 grand, dimuat dari CDN Tone.js.
+// Fallback synthesizer sederhana dipakai selagi sampel belum selesai dimuat.
 import { midiToFreq } from './music.js';
+
+// URL basis untuk sampel Salamander Grand Piano (format MP3).
+const SAMPLE_URL = 'https://tonejs.github.io/audio/salamander/';
+
+// Daftar sampel yang tersedia: [nama_file, nomor_midi].
+// Direkam setiap 3 seminada — nada di antaranya digeser pitch-nya.
+const SAMPLES = [
+  ['A0', 21],  ['C1', 24],  ['Ds1', 27], ['Fs1', 30],
+  ['A1', 33],  ['C2', 36],  ['Ds2', 39], ['Fs2', 42],
+  ['A2', 45],  ['C3', 48],  ['Ds3', 51], ['Fs3', 54],
+  ['A3', 57],  ['C4', 60],  ['Ds4', 63], ['Fs4', 66],
+  ['A4', 69],  ['C5', 72],  ['Ds5', 75], ['Fs5', 78],
+  ['A5', 81],  ['C6', 84],  ['Ds6', 87], ['Fs6', 90],
+  ['A6', 93],  ['C7', 96],  ['Ds7', 99], ['Fs7', 102],
+  ['A7', 105], ['C8', 108],
+];
 
 export class PianoAudio {
   constructor() {
@@ -11,6 +27,10 @@ export class PianoAudio {
     this.sustain = false;
     this.sustained = new Set();
     this.volume = 0.8;
+    this.buffers = new Map(); // sampleMidi -> AudioBuffer
+    this.loaded = false;
+    this.loading = false;
+    this._loadPromise = null;
   }
 
   // AudioContext hanya boleh dibuat setelah ada interaksi pengguna.
@@ -19,42 +39,20 @@ export class PianoAudio {
       const AC = window.AudioContext || window.webkitAudioContext;
       this.ctx = new AC();
 
-      // --- Master chain: body resonance → compressor → destination ---
       const comp = this.ctx.createDynamicsCompressor();
       comp.threshold.value = -20;
       comp.ratio.value = 4;
       comp.knee.value = 10;
 
-      // Simulasi resonansi badan piano (formant kayu)
-      this.bodyEQ = this.ctx.createBiquadFilter();
-      this.bodyEQ.type = 'peaking';
-      this.bodyEQ.frequency.value = 260;
-      this.bodyEQ.Q.value = 1.2;
-      this.bodyEQ.gain.value = 3;
-
-      // Low-shelf untuk kehangatan bass grand piano
-      this.warmth = this.ctx.createBiquadFilter();
-      this.warmth.type = 'lowshelf';
-      this.warmth.frequency.value = 300;
-      this.warmth.gain.value = 2.5;
-
-      // High-shelf rolloff halus — grand piano tidak terlalu tajam di atas
-      this.rolloff = this.ctx.createBiquadFilter();
-      this.rolloff.type = 'highshelf';
-      this.rolloff.frequency.value = 4500;
-      this.rolloff.gain.value = -3;
-
       this.master = this.ctx.createGain();
-      this.master.gain.value = this.volume * 0.45;
-
-      this.master.connect(this.warmth);
-      this.warmth.connect(this.bodyEQ);
-      this.bodyEQ.connect(this.rolloff);
-      this.rolloff.connect(comp);
+      this.master.gain.value = this.volume;
+      this.master.connect(comp);
       comp.connect(this.ctx.destination);
 
-      this.noiseBuf = this._makeNoise();
-      this.hammerBuf = this._makeHammerNoise();
+      // Mulai memuat sampel piano di latar belakang
+      if (!this.loading && !this.loaded) {
+        this._loadPromise = this._loadSamples();
+      }
     }
     if (this.ctx.state === 'suspended') this.ctx.resume();
     return this.ctx;
@@ -62,138 +60,126 @@ export class PianoAudio {
 
   setVolume(v) {
     this.volume = v;
-    if (this.master) this.master.gain.value = v * 0.45;
+    if (this.master) this.master.gain.value = v;
   }
 
-  // Noise burst pendek untuk komponen "tok" senar
-  _makeNoise() {
-    const len = Math.floor(this.ctx.sampleRate * 0.06);
-    const buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
-    const d = buf.getChannelData(0);
-    for (let i = 0; i < len; i++) {
-      const env = Math.exp(-i / (len * 0.15));
-      d[i] = (Math.random() * 2 - 1) * env;
+  // ---------------------------------------------------------------- memuat sampel
+
+  // Memuat semua sampel grand piano dari CDN secara paralel.
+  async _loadSamples() {
+    this.loading = true;
+    console.log('Memuat sampel grand piano…');
+
+    // Muat sampel secara paralel, maks 6 koneksi sekaligus.
+    const queue = [...SAMPLES];
+    const workers = [];
+    for (let i = 0; i < 6; i++) {
+      workers.push((async () => {
+        while (queue.length) {
+          const [name, midi] = queue.shift();
+          try {
+            const res = await fetch(`${SAMPLE_URL}${name}.mp3`);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const arrayBuf = await res.arrayBuffer();
+            const audioBuf = await this.ctx.decodeAudioData(arrayBuf);
+            this.buffers.set(midi, audioBuf);
+          } catch (e) {
+            console.warn(`Gagal memuat sampel ${name}:`, e);
+          }
+        }
+      })());
     }
-    return buf;
+    await Promise.all(workers);
+    this.loaded = true;
+    this.loading = false;
+    console.log(`Sampel piano dimuat: ${this.buffers.size}/${SAMPLES.length}`);
   }
 
-  // Noise yang lebih panjang dan terbentuk untuk simulasi suara hammer felt
-  _makeHammerNoise() {
-    const len = Math.floor(this.ctx.sampleRate * 0.12);
-    const buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
-    const d = buf.getChannelData(0);
-    for (let i = 0; i < len; i++) {
-      const t = i / this.ctx.sampleRate;
-      // Envelope dua tahap: attack cepat, decay eksponensial
-      const env = Math.min(1, i / (len * 0.02)) * Math.exp(-t * 35);
-      d[i] = (Math.random() * 2 - 1) * env;
+  // Cari sampel terdekat untuk nada MIDI tertentu.
+  _findClosestSample(midi) {
+    let closest = null;
+    let minDist = Infinity;
+    for (const [, m] of SAMPLES) {
+      if (!this.buffers.has(m)) continue;
+      const d = Math.abs(midi - m);
+      if (d < minDist) { closest = m; minDist = d; }
     }
-    return buf;
+    return closest;
   }
 
-  // Inharmonicity: pada piano asli, partial ke-n sedikit lebih tinggi
-  // karena kekakuan dawai. B = koefisien inharmonicity.
-  _stretchedPartial(f0, n, B) {
-    return f0 * n * Math.sqrt(1 + B * n * n);
-  }
+  // ---------------------------------------------------------------- memainkan nada
 
-  // Mulai nada grand piano. `id` dipakai untuk melepas nada yang sama nanti.
+  // Mulai nada. `id` dipakai untuk melepas nada yang sama nanti.
   noteOn(midi, { id = midi, velocity = 0.8, when } = {}) {
     const ctx = this.ensure();
     const t = when ?? ctx.currentTime;
     if (this.voices.has(id)) this._kill(id, t, 0.03);
     this.sustained.delete(id);
 
+    const vel = Math.min(1, Math.max(0.1, velocity));
+    const sampleMidi = this._findClosestSample(midi);
+
+    if (sampleMidi !== null) {
+      return this._noteOnSample(midi, sampleMidi, { id, vel, t });
+    } else {
+      return this._noteOnFallback(midi, { id, vel, t });
+    }
+  }
+
+  // Mainkan nada menggunakan sampel grand piano asli.
+  _noteOnSample(midi, sampleMidi, { id, vel, t }) {
+    const ctx = this.ctx;
+    const buffer = this.buffers.get(sampleMidi);
+
+    const src = ctx.createBufferSource();
+    src.buffer = buffer;
+    // Geser pitch dari sampel ke nada target.
+    // Setiap 12 seminada = 2× frekuensi.
+    src.playbackRate.value = Math.pow(2, (midi - sampleMidi) / 12);
+
+    const gain = ctx.createGain();
+    // Kurva velocity kuadratik — respons lebih alami seperti palu piano.
+    gain.gain.value = vel * vel * 0.85;
+
+    src.connect(gain);
+    gain.connect(this.master);
+    src.start(t);
+
+    this.voices.set(id, { gain, src, midi, type: 'sample' });
+    return id;
+  }
+
+  // Synthesizer sederhana — hanya dipakai selagi sampel belum dimuat.
+  _noteOnFallback(midi, { id, vel, t }) {
+    const ctx = this.ctx;
     const f = midiToFreq(midi);
     const out = ctx.createGain();
     out.connect(this.master);
 
-    const vel = Math.min(1, Math.max(0.1, velocity));
-
-    // --- Koefisien inharmonicity: dawai bass lebih inharmonis ---
-    const B = midi < 40 ? 0.0004 : midi < 60 ? 0.00015 : 0.00005;
-
-    // --- Decay: nada rendah bertahan sangat lama (grand piano 9 kaki) ---
-    const baseDecay = midi < 40 ? 12 : midi < 55 ? 8 : midi < 70 ? 5.5 : midi < 85 ? 3.5 : 2.0;
-    const decay = baseDecay * (0.7 + vel * 0.3);
-
-    // --- Brightness tergantung velocity (palu keras = lebih banyak harmonik tinggi) ---
-    const brightness = 0.3 + vel * 0.7;
-
-    // --- 12 partial harmonik dengan inharmonicity dan amplitudo realistis ---
+    const decay = Math.max(0.8, 5.0 - (midi - 36) * 0.05);
     const oscs = [];
-    const numPartials = midi > 80 ? 6 : midi > 60 ? 9 : 12;
-    for (let n = 1; n <= numPartials; n++) {
-      const pf = this._stretchedPartial(f, n, B);
-      if (pf > 16000) continue;
-
+    const partials = [[1, 1.0], [2, 0.5], [3, 0.25], [4, 0.12]];
+    for (const [mult, amp] of partials) {
+      if (f * mult > 14000) continue;
       const o = ctx.createOscillator();
       o.type = 'sine';
-      o.frequency.value = pf;
-
-      // Amplitudo: fundamental kuat, harmonik meluruh secara bertahap
-      // Grand piano: partial ke-2 dan 3 relatif kuat
-      let amp;
-      if (n === 1) amp = 1.0;
-      else if (n === 2) amp = 0.65;
-      else if (n === 3) amp = 0.45;
-      else if (n === 4) amp = 0.28;
-      else if (n === 5) amp = 0.18;
-      else amp = 0.15 / (n - 4);
-      amp *= brightness;
-
-      // Partial yang lebih tinggi meluruh lebih cepat
-      const partialDecay = decay * Math.pow(0.82, n - 1);
-
+      o.frequency.value = f * mult;
       const g = ctx.createGain();
       g.gain.setValueAtTime(0.0001, t);
-      // Attack sangat cepat (karakteristik palu piano)
-      g.gain.linearRampToValueAtTime(amp * vel * 0.35, t + 0.003);
-      // Transisi cepat ke sustain level
-      g.gain.exponentialRampToValueAtTime(
-        Math.max(0.0002, amp * vel * 0.35 * 0.4), t + 0.12
-      );
-      // Decay panjang eksponensial
-      g.gain.exponentialRampToValueAtTime(0.0001, t + partialDecay);
-
+      g.gain.linearRampToValueAtTime(amp * vel * 0.3, t + 0.005);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + decay * (1 / mult));
       o.connect(g);
       g.connect(out);
       o.start(t);
-      o.stop(t + partialDecay + 0.2);
+      o.stop(t + decay + 0.1);
       oscs.push(o);
     }
 
-    // --- Hammer tone: suara palu memukul dawai ---
-    const hammer = ctx.createBufferSource();
-    hammer.buffer = this.hammerBuf;
-    // Filter: nada tinggi → hammer lebih cerah; nada rendah → lebih tumpul
-    const hf = ctx.createBiquadFilter();
-    hf.type = 'bandpass';
-    hf.frequency.value = Math.min(8000, Math.max(800, f * 4));
-    hf.Q.value = 0.8;
-    const hg = ctx.createGain();
-    hg.gain.value = 0.18 * vel * brightness;
-    hammer.connect(hf);
-    hf.connect(hg);
-    hg.connect(out);
-    hammer.start(t);
-
-    // --- String noise: bunyi halus gesekan senar saat dipukul ---
-    const sn = ctx.createBufferSource();
-    sn.buffer = this.noiseBuf;
-    const snf = ctx.createBiquadFilter();
-    snf.type = 'highpass';
-    snf.frequency.value = Math.min(5000, f * 2);
-    const sng = ctx.createGain();
-    sng.gain.value = 0.06 * vel;
-    sn.connect(snf);
-    snf.connect(sng);
-    sng.connect(out);
-    sn.start(t);
-
-    this.voices.set(id, { out, oscs, midi });
+    this.voices.set(id, { gain: out, oscs, midi, type: 'synth' });
     return id;
   }
+
+  // ---------------------------------------------------------------- melepas nada
 
   noteOff(id, when) {
     const ctx = this.ctx;
@@ -207,12 +193,21 @@ export class PianoAudio {
     if (!v) return;
     this.voices.delete(id);
     this.sustained.delete(id);
-    v.out.gain.cancelScheduledValues(t);
-    v.out.gain.setValueAtTime(v.out.gain.value, t);
-    // Release lebih lembut untuk grand piano (damper tidak instan)
-    v.out.gain.exponentialRampToValueAtTime(0.0001, t + rel);
-    setTimeout(() => { try { v.out.disconnect(); } catch (e) {} }, (rel + 0.3) * 1000 + Math.max(0, (t - this.ctx.currentTime) * 1000));
+
+    v.gain.gain.cancelScheduledValues(t);
+    v.gain.gain.setValueAtTime(v.gain.gain.value, t);
+    v.gain.gain.exponentialRampToValueAtTime(0.0001, t + rel);
+
+    const cleanupDelay = (rel + 0.3) * 1000 + Math.max(0, (t - this.ctx.currentTime) * 1000);
+    setTimeout(() => {
+      try {
+        if (v.type === 'sample') v.src.stop();
+        v.gain.disconnect();
+      } catch (e) { /* abaikan */ }
+    }, cleanupDelay);
   }
+
+  // ---------------------------------------------------------------- sustain pedal
 
   setSustain(on) {
     this.sustain = on;
@@ -221,13 +216,14 @@ export class PianoAudio {
     }
   }
 
+  // ---------------------------------------------------------------- mode dengarkan
+
   // Memutar satu nada terjadwal (dipakai mode "dengarkan").
   playScheduled(midi, startTime, dur, velocity = 0.7) {
     const ctx = this.ensure();
     const id = 'sch-' + Math.random().toString(36).slice(2);
     this.noteOn(midi, { id, velocity, when: startTime });
     const off = startTime + Math.max(0.08, dur * 0.95);
-    const saved = this.sustain;
     // lepas tanpa memedulikan pedal sustain
     const delay = Math.max(0, (off - ctx.currentTime) * 1000);
     setTimeout(() => {
