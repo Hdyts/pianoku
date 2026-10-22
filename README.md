@@ -33,23 +33,6 @@ npx serve .          # lalu buka alamat yang tampil
 npm test             # tes otomatis (Node 20+)
 ```
 
-## Deploy ke Vercel
-
-Tidak perlu build. `vercel.json` sudah menyetel folder ini sebagai situs statis.
-
-**Lewat GitHub (disarankan)**
-1. Buat repositori baru di GitHub, lalu unggah isi folder ini.
-2. Buka vercel.com, pilih **Add New → Project**, impor repositori itu.
-3. Biarkan semua pengaturan bawaan (Framework: Other), klik **Deploy**.
-4. Situs aktif di alamat `nama-proyek.vercel.app`. Tiap `git push` otomatis memperbarui situs.
-
-**Lewat terminal**
-```bash
-npm i -g vercel
-vercel          # login lalu ikuti pertanyaan (jawab Enter untuk semua)
-vercel --prod   # rilis ke alamat produksi
-```
-
 ## Struktur
 
 ```
